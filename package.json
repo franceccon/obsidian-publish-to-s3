@@ -1,0 +1,22 @@
+{
+  "name": "obsidian-publish-to-s3",
+  "version": "0.1.0",
+  "description": "Publish an Obsidian folder to S3",
+  "private": true,
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsc --noEmit && tsdown"
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "obsidian": "latest",
+    "tsdown": "latest",
+    "typescript": "latest"
+  },
+  "packageManager": "pnpm@11.25.0"
+}
