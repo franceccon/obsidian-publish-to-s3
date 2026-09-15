@@ -68,12 +68,16 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Package plugin
+        run: zip publish-to-s3.zip main.js manifest.json
+
       - name: Attest release files
         uses: actions/attest@v4
         with:
           subject-path: |
             main.js
             manifest.json
+            publish-to-s3.zip
 
       - name: Create draft release
         env:
@@ -83,4 +87,4 @@ jobs:
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
             --draft \
-            main.js manifest.json
+            main.js manifest.json publish-to-s3.zip

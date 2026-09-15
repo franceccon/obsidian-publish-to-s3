@@ -1,6 +1,6 @@
 {
   "name": "obsidian-publish-to-s3",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Publish an Obsidian folder to S3",
   "type": "module",
