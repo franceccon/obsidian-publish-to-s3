@@ -2,8 +2,6 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { App, normalizePath, TFile, TFolder, type CachedMetadata } from "obsidian";
 import type { PublishToS3Settings } from "./settings";
 
-export type Dictionary<T> = Record<string, T>;
-
 export type Metadata = {
   files: FileMetadata[];
 };
@@ -12,7 +10,7 @@ export type FileMetadata = {
   path: string;
   title: string;
   createdAt: string;
-  metadata: Dictionary<string>;
+  metadata: Record<string, any>;
 };
 
 export type PublishProgress = {
@@ -38,12 +36,12 @@ export async function publishToS3(
     reportProgress(onProgress, completed, total, files[0]?.path ?? "index.json");
 
     for (const [index, file] of files.entries()) {
-      const relativePath = sourceFolder ? file.path.slice(sourceFolder.path.length + 1) : file.path;
+      const path = publishedPath(file, sourceFolder);
 
       await s3.send(
         new PutObjectCommand({
           Bucket: bucket,
-          Key: objectKey(prefix, relativePath),
+          Key: objectKey(prefix, path),
           Body: new Uint8Array(await app.vault.readBinary(file)),
         }),
       );
@@ -53,7 +51,7 @@ export async function publishToS3(
     }
 
     const metadata: Metadata = {
-      files: files.map((file) => fileMetadata(app, file)),
+      files: files.map((file) => fileMetadata(app, file, sourceFolder)),
     };
 
     await s3.send(
@@ -105,6 +103,10 @@ function getFiles(app: App, sourceFolder: TFolder | null): TFile[] {
     .sort((left, right) => left.path.localeCompare(right.path));
 }
 
+function publishedPath(file: TFile, sourceFolder: TFolder | null): string {
+  return sourceFolder ? file.path.slice(sourceFolder.path.length + 1) : file.path;
+}
+
 function createS3Client(app: App, settings: PublishToS3Settings): S3Client {
   const accessKeyId = requireSetting(settings.s3.accessKeyId, "S3 access key ID");
   const secretId = requireSetting(settings.s3.secretAccessKeySecretId, "S3 secret access key");
@@ -120,11 +122,11 @@ function createS3Client(app: App, settings: PublishToS3Settings): S3Client {
   });
 }
 
-function fileMetadata(app: App, file: TFile): FileMetadata {
+function fileMetadata(app: App, file: TFile, sourceFolder: TFolder | null): FileMetadata {
   const cache = app.metadataCache.getFileCache(file);
 
   return {
-    path: file.path,
+    path: publishedPath(file, sourceFolder),
     title: documentTitle(file, cache),
     createdAt: new Date(file.stat.ctime).toISOString(),
     metadata: frontmatterMetadata(cache),
@@ -140,18 +142,10 @@ function documentTitle(file: TFile, cache: CachedMetadata | null): string {
   return cache?.headings?.[0]?.heading || file.basename;
 }
 
-function frontmatterMetadata(cache: CachedMetadata | null): Dictionary<string> {
+function frontmatterMetadata(cache: CachedMetadata | null): Record<string, any> {
   const entries = Object.entries(cache?.frontmatter ?? {}).filter(([key]) => key !== "position");
 
-  return Object.fromEntries(entries.map(([key, value]) => [key, metadataValue(value)]));
-}
-
-function metadataValue(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  return JSON.stringify(value) ?? String(value);
+  return Object.fromEntries(entries);
 }
 
 function requireSetting(value: string, name: string): string {
