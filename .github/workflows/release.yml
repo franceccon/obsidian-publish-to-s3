@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify release metadata
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync } from "node:fs";
+
+          const tag = process.env.GITHUB_REF_NAME;
+          const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          const versions = JSON.parse(readFileSync("versions.json", "utf8"));
+
+          if (tag !== manifest.version) {
+            throw new Error(`Tag ${tag} does not match manifest version ${manifest.version}`);
+          }
+
+          if (packageJson.version !== manifest.version) {
+            throw new Error(
+              `Package version ${packageJson.version} does not match manifest version ${manifest.version}`,
+            );
+          }
+
+          if (versions[tag] !== manifest.minAppVersion) {
+            throw new Error(
+              `versions.json maps ${tag} to ${versions[tag]}, expected ${manifest.minAppVersion}`,
+            );
+          }
+          EOF
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Build
+        run: pnpm build
+
+      - name: Attest release files
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --draft \
+            main.js manifest.json
