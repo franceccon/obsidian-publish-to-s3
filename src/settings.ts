@@ -1,5 +1,35 @@
-import { App, PluginSettingTab, SecretComponent, Setting } from "obsidian";
+import {
+  AbstractInputSuggest,
+  App,
+  PluginSettingTab,
+  SecretComponent,
+  Setting,
+  TFolder,
+} from "obsidian";
 import type PublishToS3Plugin from "./main";
+
+class FolderSuggest extends AbstractInputSuggest<TFolder> {
+  protected getSuggestions(query: string): TFolder[] {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+
+    return this.app.vault
+      .getAllFolders(true)
+      .filter(
+        (folder) =>
+          (!normalizedQuery && folder.isRoot()) ||
+          (!folder.isRoot() && folder.path.toLocaleLowerCase().includes(normalizedQuery)),
+      )
+      .sort((left, right) => {
+        if (left.isRoot()) return -1;
+        if (right.isRoot()) return 1;
+        return left.path.localeCompare(right.path);
+      });
+  }
+
+  renderSuggestion(folder: TFolder, element: HTMLElement): void {
+    element.setText(folder.isRoot() ? "Vault root" : folder.path);
+  }
+}
 
 export interface PublishToS3Settings {
   folder: string;
@@ -40,15 +70,22 @@ export class PublishToS3SettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Folder")
       .setDesc("Path to the folder to publish, relative to the vault root.")
-      .addText((text) =>
-        text
-          .setPlaceholder("Folder/path")
+      .addText((text) => {
+        new FolderSuggest(this.app, text.inputEl).onSelect(async (folder) => {
+          const path = folder.isRoot() ? "" : folder.path;
+          text.setValue(path);
+          this.plugin.settings.folder = path;
+          await this.plugin.saveSettings();
+        });
+
+        return text
+          .setPlaceholder("Vault root")
           .setValue(this.plugin.settings.folder)
           .onChange(async (folder) => {
             this.plugin.settings.folder = folder;
             await this.plugin.saveSettings();
-          }),
-      );
+          });
+      });
 
     new Setting(containerEl).setName("S3 configuration").setHeading();
 

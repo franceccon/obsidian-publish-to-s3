@@ -12,6 +12,9 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
   },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0"
+  },
   "devDependencies": {
     "@types/node": "latest",
     "obsidian": "latest",

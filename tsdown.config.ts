@@ -12,8 +12,11 @@ export default defineConfig({
   sourcemap: false,
   deps: {
     neverBundle: ["obsidian", "electron", /^@codemirror\//, /^@lezer\//, ...builtinModules],
+    alwaysBundle: ["@aws-sdk/client-s3"],
+    onlyBundle: false,
   },
   outputOptions: {
+    codeSplitting: false,
     entryFileNames: "[name].js",
   },
 });
